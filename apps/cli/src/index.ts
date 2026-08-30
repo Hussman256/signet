@@ -5,6 +5,9 @@ import { confirm } from '@inquirer/prompts';
 import { spawnSync } from 'node:child_process';
 import * as dotenv from 'dotenv';
 import { resolve } from 'node:path';
+import { createServer } from 'node:http';
+import open from 'open';
+import { Keypair } from '@stellar/stellar-sdk';
 
 dotenv.config({ path: resolve(process.cwd(), '../../.env') });
 dotenv.config({ path: resolve(process.cwd(), '.env') });
@@ -16,87 +19,163 @@ program
   .description('Signet CLI to manage developer profiles and deploy keys')
   .version('0.1.0');
 
+const getPubkey = (source: string): string => {
+  const res = spawnSync('stellar', ['keys', 'address', source]);
+  if (res.status !== 0) {
+    console.error(`Error: Could not get public key for source '${source}'. Are you sure it exists?`);
+    process.exit(1);
+  }
+  return res.stdout.toString().trim();
+};
+
+const getSecret = (source: string): string => {
+  const res = spawnSync('stellar', ['keys', 'show', source]);
+  if (res.status !== 0) {
+    console.error(`Error: Could not get secret key for source '${source}'.`);
+    process.exit(1);
+  }
+  return res.stdout.toString().trim();
+};
+
 program
   .command('link')
-  .description('Link a deploy wallet to a handle')
-  .argument('<handle>', 'The handle to link')
+  .description('Link a deploy wallet to your profile')
   .option('--source <alias>', 'The Stellar CLI identity to use as the deploy key', 'deployer')
-  .option('--network <network>', 'The network to use (e.g. testnet, mainnet)', process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet')
-  .option('--rpc-url <url>', 'The Soroban RPC URL', process.env.NEXT_PUBLIC_SOROBAN_RPC_URL)
-  .option('--contract <id>', 'The Identity Registry contract ID', process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ID)
-  .action((handle, options) => {
-    if (!options.contract) {
-      console.error('Error: Contract ID is required. Pass --contract or set NEXT_PUBLIC_IDENTITY_REGISTRY_ID in .env');
-      process.exit(1);
-    }
-
-    console.log(`Linking wallet (source: ${options.source}) to handle '${handle}'...`);
-    const args = [
-      'contract', 'invoke',
-      '--id', options.contract,
-      '--source', options.source,
-    ];
+  .option('--app-url <url>', 'The Signet app URL', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+  .action(async (options) => {
+    const pubkey = getPubkey(options.source);
     
-    if (options.network) {
-      args.push('--network', options.network);
-    } else if (options.rpcUrl) {
-      args.push('--rpc-url', options.rpcUrl);
-    }
+    console.log(`Linking deploy key (source: ${options.source}, ${pubkey})...`);
     
-    args.push('--', 'claim', '--handle', handle);
+    const server = createServer();
+    
+    const tokenPromise = new Promise<{ token: string; handle: string }>((resolvePromise, rejectPromise) => {
+      server.on('request', (req, res) => {
+        try {
+          const url = new URL(req.url || '', `http://localhost:${(server.address() as any).port}`);
+          if (url.pathname === '/callback') {
+            const token = url.searchParams.get('token');
+            const handle = url.searchParams.get('handle');
+            
+            if (!token || !handle) {
+              res.writeHead(400, { 'Content-Type': 'text/html' });
+              res.end('<html><body><h1>Error</h1><p>Missing token or handle.</p></body></html>');
+              return rejectPromise(new Error('Missing token or handle in callback'));
+            }
+            
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end('<html><body><h1>Approved!</h1><p>You can close this window and return to your terminal.</p><script>window.close()</script></body></html>');
+            resolvePromise({ token, handle });
+          } else {
+            res.writeHead(404);
+            res.end();
+          }
+        } catch (e) {
+          rejectPromise(e);
+        }
+      });
+    });
 
-    const result = spawnSync('stellar', args, { stdio: 'inherit' });
-    if (result.status !== 0) {
-      console.error('Failed to link wallet.');
-      process.exit(result.status || 1);
-    }
-    console.log(`Successfully linked to handle '${handle}'.`);
+    server.listen(0, async () => {
+      const port = (server.address() as any).port;
+      const callbackUrl = `http://localhost:${port}/callback`;
+      const approveUrl = `${options.appUrl}/app/cli/approve?pubkey=${pubkey}&callback=${encodeURIComponent(callbackUrl)}`;
+      
+      console.log(`Opening approval link in your browser:`);
+      console.log(approveUrl);
+      
+      try {
+        await open(approveUrl);
+      } catch (e) {
+        console.log(`Failed to open browser automatically. Please open the link manually.`);
+      }
+
+      try {
+        const { token, handle } = await tokenPromise;
+        server.close();
+        
+        console.log(`Received approval from web app. Verifying ownership...`);
+        
+        const secret = getSecret(options.source);
+        const kp = Keypair.fromSecret(secret);
+        const signature = kp.sign(Buffer.from(token, 'utf8')).toString('base64');
+        
+        const response = await fetch(`${options.appUrl}/api/cli/link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, signature }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error(`Failed to link wallet: ${data.error || response.statusText}`);
+          process.exit(1);
+        }
+        
+        console.log(`Successfully linked ${pubkey} to handle '@${handle}'.`);
+      } catch (e: any) {
+        server.close();
+        console.error(`Error: ${e.message}`);
+        process.exit(1);
+      }
+    });
   });
 
 program
   .command('unlink')
-  .description('Unlink a deploy wallet from its current handle')
-  .argument('<handle>', 'The handle to unlink')
+  .description('Unlink a deploy wallet from its current profile')
   .option('--source <alias>', 'The Stellar CLI identity to use as the deploy key', 'deployer')
-  .option('--network <network>', 'The network to use (e.g. testnet, mainnet)', process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet')
-  .option('--rpc-url <url>', 'The Soroban RPC URL', process.env.NEXT_PUBLIC_SOROBAN_RPC_URL)
-  .option('--contract <id>', 'The Identity Registry contract ID', process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ID)
+  .option('--app-url <url>', 'The Signet app URL', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
   .option('-y, --yes', 'Skip confirmation prompt')
-  .action(async (handle, options) => {
-    if (!options.contract) {
-      console.error('Error: Contract ID is required. Pass --contract or set NEXT_PUBLIC_IDENTITY_REGISTRY_ID in .env');
-      process.exit(1);
-    }
-
+  .action(async (options) => {
+    const pubkey = getPubkey(options.source);
+    
     if (!options.yes) {
-      const answer = await confirm({ message: `Are you sure you want to unlink the deploy wallet (source: ${options.source}) from the handle '${handle}'?` });
+      const answer = await confirm({ message: `Are you sure you want to unlink the deploy wallet (source: ${options.source}, ${pubkey}) from its profile?` });
       if (!answer) {
         console.log('Cancelled.');
         process.exit(0);
       }
     }
 
-    console.log(`Unlinking wallet from handle '${handle}'...`);
-    const args = [
-      'contract', 'invoke',
-      '--id', options.contract,
-      '--source', options.source,
-    ];
-
-    if (options.network) {
-      args.push('--network', options.network);
-    } else if (options.rpcUrl) {
-      args.push('--rpc-url', options.rpcUrl);
+    console.log(`Unlinking wallet ${pubkey}...`);
+    
+    try {
+      // 1. Fetch a generic challenge
+      const challengeRes = await fetch(`${options.appUrl}/api/cli/challenge?pubkey=${pubkey}`);
+      const challengeData = await challengeRes.json();
+      
+      if (!challengeRes.ok) {
+        console.error(`Failed to fetch challenge: ${challengeData.error || challengeRes.statusText}`);
+        process.exit(1);
+      }
+      
+      // 2. Sign the challenge
+      const secret = getSecret(options.source);
+      const kp = Keypair.fromSecret(secret);
+      const signature = kp.sign(Buffer.from(challengeData.challenge, 'utf8')).toString('base64');
+      
+      // 3. Post to unlink
+      const response = await fetch(`${options.appUrl}/api/cli/unlink`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pubkey, challenge: challengeData.challenge, signature }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error(`Failed to unlink wallet. Error: ${data.error || response.statusText}`);
+        console.error('Are you sure you control the deploy key for this profile?');
+        process.exit(1);
+      }
+      
+      console.log(`Successfully unlinked wallet ${pubkey}.`);
+    } catch (e: any) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
     }
-
-    args.push('--', 'release', '--handle', handle);
-
-    const result = spawnSync('stellar', args, { stdio: 'inherit' });
-    if (result.status !== 0) {
-      console.error('Failed to unlink wallet. Are you sure you control the deploy key for this handle?');
-      process.exit(result.status || 1);
-    }
-    console.log(`Successfully unlinked wallet from handle '${handle}'.`);
   });
 
 program.parse();
