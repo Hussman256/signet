@@ -1,3 +1,4 @@
+import type { UnlinkFailure } from '@signet/types';
 import { verifyChallenge, Sep10Error } from '../sep10.ts';
 import { logger } from '../logger.ts';
 import { spendChallenge } from './challenge-spend.ts';
@@ -25,12 +26,9 @@ import { spendChallenge } from './challenge-spend.ts';
  * attributes work to someone.
  */
 
-export type UnlinkFailure =
-  | 'unavailable'
-  | 'bad-challenge'
-  | 'replayed'
-  | 'not-linked'
-  | 'primary-wallet';
+// Lives in `@signet/types`' cli-api.ts, the wire contract the Go CLI is
+// generated from; re-exported here for the route.
+export type { UnlinkFailure };
 
 export type UnlinkResult =
   | { ok: true; pubkey: string; handle: string | null }

@@ -152,9 +152,12 @@ func Run(ctx context.Context, baseURL, network, source, publicKey string, deps D
 	if err != nil {
 		return Result{}, err
 	}
+	// Already classified: pair.Client maps the refusal's code to its exit code
+	// (internal/spec/errors.go), so an already-linked wallet exits 9 however
+	// the server words it — #258 asks for that failure mode by name.
 	handle, err := deps.Complete(ctx, started.State, signed, "")
 	if err != nil {
-		return Result{}, classifyComplete(err)
+		return Result{}, err
 	}
 
 	return Result{
@@ -236,21 +239,6 @@ func wait(
 
 	got := <-results
 	return got.outcome, got.err
-}
-
-// classifyComplete maps the server's refusal onto the CLI's exit codes, so a
-// wallet that is already someone else's exits differently from a network
-// blip. `already linked` is one of the failure modes #258 asks for by name.
-func classifyComplete(err error) error {
-	text := err.Error()
-	switch {
-	case strings.Contains(text, "already bound to a different profile"):
-		return fmt.Errorf("%w: %s", exitcode.ErrAlreadyLinked, text)
-	case strings.Contains(text, "already been completed"):
-		return fmt.Errorf("%w: %s", exitcode.ErrAlreadyLinked, text)
-	default:
-		return err
-	}
 }
 
 // FetchChallenge asks a deployment for an unsigned SEP-10 challenge for
