@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/blockchain-maxis/signet/cli/internal/exitcode"
+	"github.com/blockchain-maxis/signet/cli/internal/redact"
 )
 
 // stdinRunner is the exec seam for `stellar` invocations that take a
@@ -43,7 +44,14 @@ var secretKeyPattern = regexp.MustCompile(`^S[A-Z2-7]{55}$`)
 // `--sign-with-key` and reading the transaction from stdin both landed in
 // stellar 25.2.0, which CheckStellarCLI already enforces (see
 // MinimumStellarVersion), so neither is probed for here.
-func SignChallenge(binary, source, unsignedXDR string) (string, error) {
+//
+// networkPassphrase is the one the deployment returned alongside the
+// challenge, passed as --network-passphrase. It is part of the signed hash, so
+// without it stellar signs for whatever network its own config defaults to:
+// after `stellar network use mainnet`, a testnet challenge would be signed for
+// mainnet and `complete` could only answer "bad challenge". An empty one is
+// refused rather than left to that default.
+func SignChallenge(binary, source, unsignedXDR, networkPassphrase string) (string, error) {
 	if binary == "" {
 		binary = DefaultBinary
 	}
@@ -53,17 +61,27 @@ func SignChallenge(binary, source, unsignedXDR string) (string, error) {
 	if strings.TrimSpace(unsignedXDR) == "" {
 		return "", fmt.Errorf("%w: nothing to sign", exitcode.ErrSigningFailure)
 	}
+	if strings.TrimSpace(networkPassphrase) == "" {
+		return "", fmt.Errorf(
+			"%w: the deployment did not say which network the challenge is for",
+			exitcode.ErrSigningFailure,
+		)
+	}
 	if err := CheckStellarCLI(binary); err != nil {
 		return "", err
 	}
 
-	stdout, stderr, err := runStdin(binary, unsignedXDR, "tx", "sign", "--sign-with-key", source)
+	stdout, stderr, err := runStdin(
+		binary, unsignedXDR,
+		"tx", "sign", "--sign-with-key", source, "--network-passphrase", networkPassphrase,
+	)
 	if err != nil {
 		// `stellar`'s own stderr is the useful part — "identity not found",
 		// "wrong passphrase", a hardware wallet declining. Passed through
 		// rather than replaced, but trimmed so a multi-line dump does not
-		// bury the reason.
-		detail := strings.TrimSpace(string(stderr))
+		// bury the reason, and redacted because it is headed for a terminal
+		// and a CI log.
+		detail := redact.Secrets(strings.TrimSpace(string(stderr)))
 		if detail == "" {
 			detail = err.Error()
 		}

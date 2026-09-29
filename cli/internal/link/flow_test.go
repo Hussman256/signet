@@ -60,8 +60,8 @@ func baseDeps(status pair.Status) Deps {
 			return pair.Started{State: "p_1", PollToken: "tok"}, nil
 		},
 		Poll:      func(context.Context, string) (pair.Status, error) { return status, nil },
-		Challenge: func(context.Context, string) (string, error) { return "UNSIGNED", nil },
-		Sign:      func(string) (string, error) { return "SIGNED", nil },
+		Challenge: func(context.Context, string) (string, string, error) { return "UNSIGNED", testPassphrase, nil },
+		Sign:      func(string, string) (string, error) { return "SIGNED", nil },
 		Complete:  func(context.Context, string, string, string) (string, error) { return "alice", nil },
 		// Keep the suite fast: the real defaults are five minutes and two
 		// seconds, and nothing here is testing wall-clock behaviour.
@@ -196,7 +196,7 @@ func TestRun_CallbackWithTheWrongStateDoesNotFinishTheLink(t *testing.T) {
 
 func TestRun_RejectedApprovalExitsWithoutSigning(t *testing.T) {
 	deps := baseDeps(pair.StatusRejected)
-	deps.Sign = func(string) (string, error) {
+	deps.Sign = func(string, string) (string, error) {
 		t.Fatal("signed after the approval was refused")
 		return "", nil
 	}
@@ -264,7 +264,7 @@ func TestRun_FallsBackToPollingWhenTheLoopbackCannotBind(t *testing.T) {
 
 func TestRun_SigningFailureStopsBeforeComplete(t *testing.T) {
 	deps := baseDeps(pair.StatusApproved)
-	deps.Sign = func(string) (string, error) {
+	deps.Sign = func(string, string) (string, error) {
 		return "", errors.New("signing failed: identity not found")
 	}
 	deps.Complete = func(context.Context, string, string, string) (string, error) {
@@ -276,3 +276,5 @@ func TestRun_SigningFailureStopsBeforeComplete(t *testing.T) {
 		t.Fatal("expected a signing error")
 	}
 }
+
+const testPassphrase = "Test SDF Network ; September 2015"

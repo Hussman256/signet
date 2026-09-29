@@ -72,13 +72,13 @@ stellar CLI.`,
 				}
 			}
 
-			unsigned, err := link.FetchChallenge(
+			unsigned, passphrase, err := link.FetchChallenge(
 				&http.Client{Timeout: 15 * time.Second}, resolved.BaseURL,
 			)(cmd.Context(), publicKey)
 			if err != nil {
 				return err
 			}
-			signed, err := keys.SignChallenge(keys.DefaultBinary, source, unsigned)
+			signed, err := keys.SignChallenge(keys.DefaultBinary, source, unsigned, passphrase)
 			if err != nil {
 				return err
 			}
