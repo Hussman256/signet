@@ -129,7 +129,9 @@ func looksLikeXDR(s string) bool {
 var seedPhrasePattern = regexp.MustCompile(`^(?:[a-z]+ ){11,}[a-z]+$`)
 
 // ValidateSignWithKey rejects key *material* passed where an identity name
-// belongs.
+// belongs. Despite the flag-oriented name, callers apply it to the resolved
+// signing identity after --sign-with-key, --source, environment, and config
+// precedence, so none of those routes can bypass the same rule.
 //
 // `stellar tx sign --sign-with-key` accepts a raw secret or a seed phrase, but
 // signet cannot: it has to resolve the deploy account's public key before it
@@ -149,7 +151,7 @@ func ValidateSignWithKey(value string) error {
 	}
 	if secretKeyPattern.MatchString(trimmed) || seedPhrasePattern.MatchString(trimmed) {
 		return fmt.Errorf(
-			"%w: --sign-with-key looks like key material, not an identity name. "+
+			"%w: the signing identity looks like key material, not an identity name. "+
 				"signet resolves your public key through `stellar keys address`, so it needs a "+
 				"name — and a secret on the command line is visible in shell history and to `ps`. "+
 				"Run `stellar keys add <name>` once, then pass that name",
