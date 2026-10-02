@@ -35,6 +35,7 @@ var failureErrors = map[CliFailureCode]error{
 	CliFailureCodeExpired:          exitcode.ErrNetwork,
 	CliFailureCodeAlreadyUsed:      exitcode.ErrNetwork,
 	CliFailureCodeNoProfile:        exitcode.ErrNetwork,
+	CliFailureCodeNoKey:            exitcode.ErrNetwork,
 	CliFailureCodeNotApproved:      exitcode.ErrNetwork,
 	CliFailureCodeBadChallenge:     exitcode.ErrNetwork,
 	CliFailureCodeKeyMismatch:      exitcode.ErrNetwork,

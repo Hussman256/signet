@@ -42,6 +42,7 @@ export type ApproveFailure =
   | 'expired'
   | 'already-used'
   | 'no-profile'
+  | 'no-key'
   | 'unavailable';
 
 export type ApproveOutcome = 'ok' | ApproveFailure;
@@ -111,6 +112,7 @@ export interface PairStartRequest {
 export interface PairStartResponse {
   state: string;
   pollToken: string;
+  userCode: string;
   expiresAt: string;
 }
 

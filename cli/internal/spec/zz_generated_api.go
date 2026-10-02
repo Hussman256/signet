@@ -62,6 +62,7 @@ const (
 	ApproveFailureExpired     ApproveFailure = "expired"
 	ApproveFailureAlreadyUsed ApproveFailure = "already-used"
 	ApproveFailureNoProfile   ApproveFailure = "no-profile"
+	ApproveFailureNoKey       ApproveFailure = "no-key"
 	ApproveFailureUnavailable ApproveFailure = "unavailable"
 )
 
@@ -71,6 +72,7 @@ var ApproveFailures = []ApproveFailure{
 	ApproveFailureExpired,
 	ApproveFailureAlreadyUsed,
 	ApproveFailureNoProfile,
+	ApproveFailureNoKey,
 	ApproveFailureUnavailable,
 }
 
@@ -83,6 +85,7 @@ const (
 	ApproveOutcomeExpired     ApproveOutcome = "expired"
 	ApproveOutcomeAlreadyUsed ApproveOutcome = "already-used"
 	ApproveOutcomeNoProfile   ApproveOutcome = "no-profile"
+	ApproveOutcomeNoKey       ApproveOutcome = "no-key"
 	ApproveOutcomeUnavailable ApproveOutcome = "unavailable"
 )
 
@@ -93,6 +96,7 @@ var ApproveOutcomes = []ApproveOutcome{
 	ApproveOutcomeExpired,
 	ApproveOutcomeAlreadyUsed,
 	ApproveOutcomeNoProfile,
+	ApproveOutcomeNoKey,
 	ApproveOutcomeUnavailable,
 }
 
@@ -218,6 +222,7 @@ const (
 	CliFailureCodeExpired              CliFailureCode = "expired"
 	CliFailureCodeAlreadyUsed          CliFailureCode = "already-used"
 	CliFailureCodeNoProfile            CliFailureCode = "no-profile"
+	CliFailureCodeNoKey                CliFailureCode = "no-key"
 	CliFailureCodeNotApproved          CliFailureCode = "not-approved"
 	CliFailureCodeAlreadyCompleted     CliFailureCode = "already-completed"
 	CliFailureCodeBadChallenge         CliFailureCode = "bad-challenge"
@@ -243,6 +248,7 @@ var CliFailureCodes = []CliFailureCode{
 	CliFailureCodeExpired,
 	CliFailureCodeAlreadyUsed,
 	CliFailureCodeNoProfile,
+	CliFailureCodeNoKey,
 	CliFailureCodeNotApproved,
 	CliFailureCodeAlreadyCompleted,
 	CliFailureCodeBadChallenge,
@@ -290,6 +296,7 @@ type PairStartRequest struct {
 type PairStartResponse struct {
 	State     string `json:"state"`
 	PollToken string `json:"pollToken"`
+	UserCode  string `json:"userCode"`
 	ExpiresAt string `json:"expiresAt"`
 }
 
