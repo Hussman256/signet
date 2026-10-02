@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { ErrorBody, PairCompleteRequest, PairCompleteResponse } from '@signet/types';
 import { completePairing, type CompleteFailure } from '@/lib/server/pairing';
 import { LIMITS, enforceRateLimit } from '@/lib/rate-limit-http';
-import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -69,7 +68,6 @@ export async function POST(req: Request) {
 
   const result = await completePairing(state, transaction, undefined, handoffCode);
   if (!result.ok) {
-    logger.warn({ state, reason: result.reason }, 'cli.pairCompleteFailed');
     // `code` is what the CLI branches on (exit 9 for `wallet-bound-elsewhere`);
     // the message is for the person and free to change.
     return NextResponse.json(
@@ -78,12 +76,12 @@ export async function POST(req: Request) {
     );
   }
 
-  logger.info({ state, pubkey: result.wallet.pubkey }, 'cli.pairCompleted');
   return NextResponse.json(
     {
       ok: true,
       wallet: result.wallet.pubkey,
       handle: result.handle,
+      indexingPending: result.wallet.indexingPending,
     } satisfies PairCompleteResponse,
     { headers: { 'cache-control': 'no-store' } },
   );

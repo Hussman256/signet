@@ -328,9 +328,10 @@ type PairCompleteRequest struct {
 
 // PairCompleteResponse mirrors the PairCompleteResponse interface in packages/types/src/cli-api.ts.
 type PairCompleteResponse struct {
-	OK     bool   `json:"ok"`
-	Wallet string `json:"wallet"`
-	Handle string `json:"handle"`
+	OK              bool   `json:"ok"`
+	Wallet          string `json:"wallet"`
+	Handle          string `json:"handle"`
+	IndexingPending bool   `json:"indexingPending"`
 }
 
 // UnlinkRequest mirrors the UnlinkRequest interface in packages/types/src/cli-api.ts.

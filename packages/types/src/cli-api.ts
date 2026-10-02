@@ -145,6 +145,7 @@ export interface PairCompleteResponse {
   ok: boolean;
   wallet: string;
   handle: string | null;
+  indexingPending: boolean;
 }
 
 export interface UnlinkRequest {
