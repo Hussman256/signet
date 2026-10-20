@@ -52,3 +52,13 @@ export {
   normaliseFootprint,
   type RawFootprint,
 } from './observe/normalise.ts';
+
+// Observed storage slots (#513): footprint keys grouped by shape and matched
+// against the spec's unions and enums (design §1.3).
+export {
+  groupLedgerKeys,
+  keyShape,
+  type KeyShape,
+  type StorageDurability,
+  type StorageSlot,
+} from './storage/shape.ts';
