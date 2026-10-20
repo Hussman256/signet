@@ -368,6 +368,73 @@ export const schemas: Record<string, OpenApiSchema> = {
  * Modular paths registry. Each endpoint issue (#627 to #646) registers or adds its path.
  */
 export const paths: Record<string, OpenApiPathItem> = {
+  '/health': {
+    get: {
+      operationId: 'getHealth',
+      summary: 'Deployment health and identity',
+      description:
+        "The operator probe's stable v1 form: per-dependency checks (including whether CLI pairing can work on this deployment), plus which network and API version this deployment serves. A degraded dependency still answers 200 with status \"degraded\".",
+      tags: ['Health'],
+      responses: {
+        '200': {
+          description: 'The health report. 200 even when degraded.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                  data: {
+                    type: 'object',
+                    required: ['status', 'apiVersion', 'network', 'networkPassphrase', 'checks'],
+                    properties: {
+                      status: { type: 'string', enum: ['ok', 'degraded'] },
+                      apiVersion: { type: 'string', const: '1' },
+                      network: {
+                        type: 'string',
+                        description: 'The Stellar network this deployment is configured for.',
+                      },
+                      networkPassphrase: { type: 'string' },
+                      checks: {
+                        type: 'object',
+                        required: ['db', 'registry', 'nonceStore', 'rateLimitStore', 'pairing'],
+                        properties: {
+                          db: { type: 'string', enum: ['up', 'down', 'skipped'] },
+                          registry: { type: 'string', enum: ['up', 'down', 'skipped'] },
+                          nonceStore: { type: 'string', enum: ['up', 'down', 'memory'] },
+                          rateLimitStore: { type: 'string', enum: ['up', 'down', 'memory'] },
+                          pairing: { type: 'string', enum: ['up', 'down', 'skipped'] },
+                        },
+                        additionalProperties: false,
+                      },
+                    },
+                    additionalProperties: false,
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        '429': {
+          description: 'Rate limit exceeded.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' },
+            },
+          },
+        },
+        '500': {
+          description: 'Internal server error.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' },
+            },
+          },
+        },
+      },
+    },
+  },
   '/openapi.json': {
     get: {
       operationId: 'getOpenApiDocument',

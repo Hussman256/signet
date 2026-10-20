@@ -34,6 +34,8 @@ export * from './json-schema.ts';
 export { CONTRACT_META_SECTION, CONTRACT_ENV_META_SECTION } from './meta.ts';
 export * from './diff.ts';
 export * from './orbital.ts';
+export * from './fallback/types.ts';
+export * from './fallback/orbital.ts';
 
 // Observed executions (#509): the one shape transaction captures (#417) and
 // sandbox runs (#542) normalise into, and the key cleaning the mutability
@@ -50,3 +52,13 @@ export {
   normaliseFootprint,
   type RawFootprint,
 } from './observe/normalise.ts';
+
+// Observed storage slots (#513): footprint keys grouped by shape and matched
+// against the spec's unions and enums (design §1.3).
+export {
+  groupLedgerKeys,
+  keyShape,
+  type KeyShape,
+  type StorageDurability,
+  type StorageSlot,
+} from './storage/shape.ts';

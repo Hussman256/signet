@@ -4,6 +4,7 @@
 
 mod dispatch;
 mod framing;
+mod ledger;
 
 use std::io;
 

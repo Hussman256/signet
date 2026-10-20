@@ -14,6 +14,9 @@ use std::sync::Mutex;
 use serde_json::{json, Map, Value};
 
 use crate::framing::{Line, LineReader};
+use crate::ledger::verbs::{
+    ledger_checkpoint, ledger_get, ledger_open, ledger_put, ledger_rollback, OpenLedger,
+};
 use crate::{ENV_HOST_VERSION, LANES, PROTOCOL_VERSION, SIMULATION_VERSION};
 
 /// Exit status after a panic in the message loop.
@@ -88,6 +91,8 @@ fn invalid_field(id: &Value, path: &str, expected: &str) -> Step {
 #[derive(Default)]
 pub struct Dispatcher {
     greeted: bool,
+    /// The session's open ledger, if any (`ledger_open`).
+    ledger: Option<OpenLedger>,
 }
 
 impl Dispatcher {
@@ -171,6 +176,11 @@ impl Dispatcher {
         }
         match ty {
             "hello" => self.hello(&id, &object),
+            "ledger_open" => Step::reply(ledger_open(&mut self.ledger, &id, &object)),
+            "ledger_put" => Step::reply(ledger_put(&mut self.ledger, &id, &object)),
+            "ledger_get" => Step::reply(ledger_get(&self.ledger, &id, &object)),
+            "ledger_checkpoint" => Step::reply(ledger_checkpoint(&mut self.ledger, &id)),
+            "ledger_rollback" => Step::reply(ledger_rollback(&mut self.ledger, &id, &object)),
             "shutdown" => Step {
                 reply: json!({ "version": PROTOCOL_VERSION, "id": id, "type": "result" }),
                 exit: Some(0),
